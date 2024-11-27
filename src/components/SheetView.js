@@ -18,6 +18,7 @@ const SheetView = () => {
     const [newColumnTitle, setNewColumnTitle] = useState('');
     const [selectedColumn, setSelectedColumn] = useState(null);
     const hotTableRef = useRef(null);
+    
 
     useEffect(() => {
         fetchHeadersAndData();
@@ -64,6 +65,11 @@ const SheetView = () => {
         }
     };
 
+    const visibleHeaders = colHeaders.filter((_, index) => columnVisibility[index]);
+    const visibleData = data.map(row =>
+        row.filter((_, index) => columnVisibility[index])
+    );
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h2>Project Data Sheet</h2>
@@ -98,8 +104,8 @@ const SheetView = () => {
                 <div style={{ borderLeft: '2px solid #ccc', height: '100%', margin: '0 10px' }}></div>
                 <HotTable
                     ref={hotTableRef}
-                    data={data}
-                    colHeaders={colHeaders}
+                    data={visibleData}
+                    colHeaders={visibleHeaders}
                     rowHeaders={true}
                     width="100%"
                     height="500"
@@ -109,7 +115,8 @@ const SheetView = () => {
                     manualColumnResize={true}
                     manualRowResize={true}
                     className='htCenter htMiddle'
-                    columns={colHeaders.map((header, index) => columnVisibility[index] ? { renderer: header === 'image' ? ImageRenderer : undefined, width: 150 } : null).filter(col => col !== null)}
+                    columns={colHeaders.map((header, index) => columnVisibility[index] 
+                        ? { renderer: header === 'image' ? ImageRenderer : undefined, width: 150 ,readOnly: header === 'productId' } : null).filter(col => col !== null)}
                     afterChange={(changes) => handleCellChange(changes, data, colHeaders, projectId)}
                     afterGetRowHeader={(row, TH) => {
                         const checkbox = document.createElement('input');
