@@ -33,6 +33,9 @@ export const handleDeleteColumns = async (projectId, colHeaders, selectedColumn,
     if (selectedColumn === null || selectedColumn < 0 || selectedColumn >= colHeaders.length) {
         alert('유효한 컬럼을 선택해주세요.');
         return;
+    } else if (colHeaders[selectedColumn] === 'productId') {
+        alert('productId 컬럼은 삭제할 수 없습니다.');
+        return;
     }
 
     try {

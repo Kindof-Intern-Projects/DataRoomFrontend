@@ -114,6 +114,7 @@ const SheetView = () => {
                     autoColumnSize={true}
                     manualColumnResize={true}
                     manualRowResize={true}
+                    manualColumnMove={true}
                     className='htCenter htMiddle'
                     columns={colHeaders.map((header, index) => columnVisibility[index] 
                         ? { renderer: header === 'image' ? ImageRenderer : undefined, width: 150 ,readOnly: header === 'productId' } : null).filter(col => col !== null)}
