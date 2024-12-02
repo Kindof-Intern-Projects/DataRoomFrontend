@@ -132,7 +132,7 @@ const SheetView = () => {
                     className='htCenter htMiddle'
                     cell = 'custom-cell'
                     columns={colHeaders.map((header, index) => columnVisibility[index]
-                        ? { renderer: header === 'image' ? ImageRenderer : undefined, width: 150, readOnly: header === 'productId' } : null).filter(col => col !== null)}
+                        ? { renderer: ['Image', 'image', '사진', '이미지'].includes(header) ? ImageRenderer : undefined, width: 150, readOnly: header === 'productId' } : null).filter(col => col !== null)}
                     afterChange={(changes) => handleCellChange(changes, data, colHeaders, projectId)}
                     afterGetRowHeader={(row, TH) => {
                         const checkbox = document.createElement('input');
