@@ -199,19 +199,6 @@ export const handleCellChange = async (changes, data, colHeaders, projectId) => 
         };
     });
 
-    // // 변경된 데이터 백엔드로 전송
-    // try {
-    //     const response = await axios.put(BACKEND_URL+`/sheet/projects/${projectId}/updatedata`, { changes: updatedData });
-
-    //     if (response.ok) {
-    //         console.log('Data successfully updated!');
-    //     } else {
-    //         const error = await response.json();
-    //         console.error('Error updating data:', error.message);
-    //     }
-    // } catch (error) {
-    //     console.error('Error saving changes:', error);
-    // }
     try {
         const response = await fetch(BACKEND_URL+`/sheet/projects/${projectId}/updatedata`, {
             method: 'PUT',

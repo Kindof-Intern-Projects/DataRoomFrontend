@@ -7,6 +7,8 @@ import Modal from 'react-modal';
 import { handleAddColumn, handleDeleteColumns, handleAddRow, handleDeleteRows, handleCellChange, handleRowCheck, handleToggleColumn, handleDownload } from '../handlers/sheetHandlers';
 import ImageRenderer from './ImageRenderer';
 import useSheetData from '../hooks/useSheetData';
+import HyperFormula from 'hyperformula';
+import Handsontable from 'handsontable';
 
 const BACKEND_URL = process.env.REACT_APP_BACK_URL;
 
@@ -92,6 +94,57 @@ const SheetView = () => {
         row.filter((_, index) => columnVisibility[index])
     );
 
+    const hyperformulaInstance = HyperFormula.buildEmpty({ licenseKey: 'non-commercial-and-evaluation' });
+
+    const handleBeforeOnCellMouseDown = (event, coords, TD, controller) => {
+        const activeEditor = hotTableRef.current.hotInstance.getActiveEditor();
+        
+        if (!activeEditor) {
+            return;
+        }
+        if (!activeEditor.isOpened()) {
+            return;
+        }
+        if (event.target === activeEditor.TEXTAREA) {
+            return;
+        }
+        
+        const { TEXTAREA } = activeEditor;
+        const { value } = TEXTAREA;
+        
+        if (value.startsWith('=')) {
+            controller.cells = true;
+            const spreadsheetAddress = `${Handsontable.helper.spreadsheetColumnLabel(coords.col)}${coords.row + 1}`;
+            activeEditor.TEXTAREA.value += spreadsheetAddress;
+            event.stopImmediatePropagation();
+            event.preventDefault();
+        }
+    };
+
+    const handleAfterOnCellMouseUp = (event) => {
+        const activeEditor = hotTableRef.current.hotInstance.getActiveEditor();
+        
+        if (!activeEditor) {
+            return;
+        }
+        if (!activeEditor.isOpened()) {
+            return;
+        }
+        if (event.target === activeEditor.TEXTAREA) {
+            return;
+        }
+        
+        activeEditor.focus();
+    };
+
+    const handleAfterOnCellMouseDown = (event, coords) => {
+        if (coords.row === -1) {
+            handleColumnSelection(coords.col);
+        } else {
+            handleAfterOnCellMouseUp(event);
+        }
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h2>Project Data Sheet</h2>
@@ -142,11 +195,8 @@ const SheetView = () => {
                         TH.innerHTML = '';
                         TH.appendChild(checkbox);
                     }}
-                    afterOnCellMouseDown={(event, coords) => {
-                        if (coords.row === -1) {
-                            handleColumnSelection(coords.col);
-                        }
-                    }}
+                    afterOnCellMouseDown={handleAfterOnCellMouseDown}
+                    beforeOnCellMouseDown={handleBeforeOnCellMouseDown}
                     contextMenu={{
                         callback: (key, options) => contextMenuCallback(key, options),
                         items: {
@@ -157,6 +207,9 @@ const SheetView = () => {
                             deleteRows: { name: "Delete Rows" },
                             deleteColumns: { name: "Delete Columns" },
                         },
+                    }}
+                    formulas={{
+                        engine: hyperformulaInstance,
                     }}
                 />
             </div>
