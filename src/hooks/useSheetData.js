@@ -12,7 +12,7 @@ const useSheetData = (projectId) => {
 
     const fetchHeadersAndData = useCallback(async () => {
         try {
-            const columnResponse = await axios.get(BACKEND_URL+`/sheet/projects/${projectId}/columns`);
+            const columnResponse = await axios.get(BACKEND_URL+`/data/projects/${projectId}/columns`);
             const columnResult = columnResponse.data;
 
             const parsedHeaders = columnResult.columns.map(col =>
@@ -21,7 +21,7 @@ const useSheetData = (projectId) => {
             setColHeaders(parsedHeaders);
             setColumnVisibility(new Array(parsedHeaders.length).fill(true));
 
-            const dataResponse = await axios.get(BACKEND_URL+`/sheet/projects/${projectId}`);
+            const dataResponse = await axios.get(BACKEND_URL+`/data/projects/${projectId}`);
             const dataResult = dataResponse.data;
 
             const sheetData = dataResult.products.map((product) => {
