@@ -203,7 +203,7 @@ export const handleCellChange = async (changes, data, colHeaders, projectId) => 
         const response = await fetch(BACKEND_URL+`/sheet/projects/${projectId}/updatedata`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ changes: modifiedData })
+            body: JSON.stringify({ projectId, changes: modifiedData })
         });
 
         if (response.ok) {
