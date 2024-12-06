@@ -15,9 +15,11 @@ const useSheetData = (projectId) => {
             const columnResponse = await axios.get(BACKEND_URL+`/data/projects/${projectId}/columns`);
             const columnResult = columnResponse.data;
 
-            const parsedHeaders = columnResult.columns.map(col =>
-                col.startsWith('additionalFields.') ? col.split('.')[1] : col
-            );
+            const excludeColumns = ['projectId', 'Product ID']
+
+            const parsedHeaders = columnResult.columns
+                .filter(col => !(projectId && excludeColumns.includes(col))) // projectId가 존재할 때 특정 컬럼 제외
+                .map(col => col.startsWith('additionalFields.') ? col.split('.')[1] : col);
             setColHeaders(parsedHeaders);
             setColumnVisibility(new Array(parsedHeaders.length).fill(true));
 
