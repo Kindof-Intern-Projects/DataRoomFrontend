@@ -2,7 +2,7 @@
 // todo : env 에 API 들 넣을것!!!!
 const wpUrl = process.env.REACT_APP_WP_URL;
 export const loginApi = async (username, password) => {
-  const response = await fetch(wpUrl+"/wp-json/jwt-auth/v1/token", {
+  const response = await fetch(wpUrl+"/jwt-auth/v1/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -20,7 +20,7 @@ export const loginApi = async (username, password) => {
 
 export const signUpApi = async (username, email, password) => {
   try {
-    const response = await fetch(wpUrl+"/wp-json/wp/v2/users", {
+    const response = await fetch(wpUrl+"/wp/v2/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
