@@ -16,7 +16,7 @@ Modal.setAppElement('#root');
 
 const SheetView = () => {
     const { projectId } = useParams();
-    const { data, colHeaders, columnVisibility, rowChecked, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData } = useSheetData(projectId);
+    const { data, colHeaders, columnVisibility, rowChecked, styles, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData } = useSheetData(projectId);
     const [newColumnTitle, setNewColumnTitle] = useState('');
     const [selectedColumn, setSelectedColumn] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
