@@ -131,7 +131,7 @@ export const handleDownload = async (data, colHeaders, columnVisibility, rowChec
         filteredRow.forEach((cellValue, index) => {
             const value = Array.isArray(cellValue) ? cellValue[0] : cellValue;
 
-            if (value && (value.startsWith('http') || value.startsWith('https'))) {  // URL 확인
+            if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('https'))) {  // URL 확인
                 // 셀에 이미지 대신 빈 값 추가 (경로 값 삭제)
                 newRow.getCell(index + 1).value = ''; // 셀에는 이미지 대신 빈 값
 
