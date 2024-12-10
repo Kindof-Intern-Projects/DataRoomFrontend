@@ -58,19 +58,8 @@ export const handleDeleteColumns = async (projectId, colHeaders, selectedColumn,
 // TODO : DB에서 데이터를 가져와서 추가할 수 있도록 수정 필요
 export const handleAddRow = async (projectId, setData, fetchHeadersAndData) => {
     const newProductData = {
-        productId: '',
-        season: '',
-        release: '',
-        category: '',
-        designer: '',
-        production: '',
-        styleNo: '',
-        skuNo: '',
-        barcode: '',
-        image: [],
-        name: '',
-        color: '',
-        size: '',
+        projectId: projectId,
+        productId: '',  // productId는 DB에서 자동 생성
         additionalFields: {}
     };
 
