@@ -57,7 +57,7 @@ const useSheetData = (projectId) => {
         }
     }, [projectId]);
 
-    // console.log(styles);
+    // console.log(data);
 
     return {
         data,
