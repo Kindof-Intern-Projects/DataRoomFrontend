@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
+import { HyperFormula } from 'hyperformula';
 
 const BACKEND_URL = process.env.REACT_APP_BACK_URL;
 
@@ -173,17 +174,28 @@ export const handleDownload = async (data, colHeaders, columnVisibility, rowChec
 export const handleCellChange = async (changes, data, colHeaders, projectId) => {
     if (!changes) return;
 
+    const hyperformulaInstance = HyperFormula.buildEmpty({ licenseKey: 'non-commercial-and-evaluation' });
+    hyperformulaInstance.addSheet('Sheet1');
+    
     // 변경된 셀 내용 저장
     const modifiedData = changes.map(([row, colIndex, oldValue, newValue]) => {
         const fieldName = colHeaders[colIndex];
         const productId = data[row][0];
         const oldData = data[row];
 
+        // 수식인지 확인하고 결과값 계산
+        let calculatedValue = newValue;
+        if (typeof newValue === 'string' && newValue.startsWith('=')) {
+            const cellAddress = { col: colIndex, row: row + 1, sheet: 0 }; // HyperFormula의 셀 주소 형식
+            hyperformulaInstance.setCellContents(cellAddress, [[newValue]]);
+            calculatedValue = hyperformulaInstance.getCellValue(cellAddress);
+        }
+
         return {
             productId,
             field: fieldName,
             oldValue,
-            newValue,
+            newValue: calculatedValue,
             oldData
         };
     });

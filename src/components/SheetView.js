@@ -145,6 +145,20 @@ const SheetView = () => {
         }
     };
 
+    const handleAfterChange = (changes) => {
+        if (!changes) return;
+    
+        const hot = hotTableRef.current.hotInstance;
+        changes.forEach(([row, col, oldValue, newValue]) => {
+            if (typeof newValue === 'string' && newValue.startsWith('=')) {
+                const cellValue = hot.getDataAtCell(row, col);
+                hot.setDataAtCell(row, col, cellValue);
+            }
+        });
+    
+        handleCellChange(changes, data, colHeaders, projectId);
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <h2>Project Data Sheet</h2>
@@ -186,7 +200,7 @@ const SheetView = () => {
                     cell = 'custom-cell'
                     columns={colHeaders.map((header, index) => columnVisibility[index]
                         ? { renderer: ['Image', 'image', '사진', '이미지'].includes(header) ? ImageRenderer : undefined, width: 150, readOnly: header === 'productId' } : null).filter(col => col !== null)}
-                    afterChange={(changes) => handleCellChange(changes, data, colHeaders, projectId)}
+                    afterChange={handleAfterChange}
                     afterGetRowHeader={(row, TH) => {
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
