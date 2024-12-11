@@ -16,15 +16,26 @@ Modal.setAppElement('#root');
 
 const SheetView = () => {
     const { projectId } = useParams();
-    const { data, colHeaders, columnVisibility, rowChecked, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData } = useSheetData(projectId);
+    const { data, colHeaders, columnVisibility, rowChecked, styles, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData } = useSheetData(projectId);
     const [newColumnTitle, setNewColumnTitle] = useState('');
     const [selectedColumn, setSelectedColumn] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const hotTableRef = useRef(null);
+    const [loading, setLoading] = useState(true);
 
+    // 데이터 로드 (fetchHeadersAndData 호출)
     useEffect(() => {
-        fetchHeadersAndData();
-    }, [fetchHeadersAndData]);
+        const loadData = async () => {
+            try {
+                await fetchHeadersAndData();
+                setLoading(false);  // 데이터 로드 완료
+            } catch (error) {
+                console.error("데이터 로딩 중 오류 발생:", error);
+                setLoading(false);  // 로딩 중 오류가 나도 로딩을 종료
+            }
+        };
+        loadData();
+    }, [fetchHeadersAndData]); // fetchHeadersAndData가 변경될 때마다 호출
 
     const handleColumnSelection = (colIndex) => {
         setSelectedColumn(colIndex);
@@ -197,7 +208,7 @@ const SheetView = () => {
                     manualRowResize={true}
                     manualColumnMove={true}
                     className='htCenter htMiddle'
-                    cell = 'custom-cell'
+                    cell='custom-cell'
                     columns={colHeaders.map((header, index) => columnVisibility[index]
                         ? { renderer: ['Image', 'image', '사진', '이미지'].includes(header) ? ImageRenderer : undefined, width: 150, readOnly: header === 'productId' } : null).filter(col => col !== null)}
                     afterChange={handleAfterChange}
@@ -222,10 +233,47 @@ const SheetView = () => {
                             deleteColumns: { name: "Delete Columns" },
                         },
                     }}
+                    
                     formulas={{
                         engine: hyperformulaInstance,
                     }}
+                
+                    // 셀 스타일 적용
+                    cells={(row, col, prop) => {
+                        const cellProperties = {};
+
+                        if (loading) {
+                            return cellProperties; // 데이터가 로딩 중일 때는 스타일을 적용하지 않음
+                        }
+
+                        if (!data || !data[row] || data[row].length === 0) {
+                            return cellProperties; // 데이터가 없으면 스타일을 적용하지 않음
+                        }
+                         
+                        // 특정 row와 column의 productId 및 field에 따라 스타일 찾기
+                        const productId = data[row][0]; 
+                        const field = colHeaders[col]; 
+                        
+                        // 스타일을 찾을 때, undefined 또는 null을 방어
+                        const matchedStyle = styles.find(
+                            (style) => style.productId === productId && style.field === field
+                        );
+                        if (matchedStyle && matchedStyle.styles) {
+                            const { styles: styleDetails } = matchedStyle;
+
+                            // 텍스트 렌더러를 사용하여 스타일을 적용
+                            cellProperties.renderer = function (instance, td) {
+                                // 기본 텍스트 렌더러를 호출
+                                Handsontable.renderers.TextRenderer.apply(this, arguments);
+                                // TODO 스타일을 적용 [스타일 속성이 하드 코딩 되어 있는 상태 추가 할려면 다른 방법을 사용해야 할듯]
+                                td.style.backgroundColor = styleDetails.color || '';
+                            };
+                        }
+
+                        return cellProperties;
+                    }}
                 />
+
             </div>
             <Modal
                 isOpen={isModalOpen}
