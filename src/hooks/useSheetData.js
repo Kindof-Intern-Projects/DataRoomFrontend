@@ -28,7 +28,7 @@ const useSheetData = (projectId) => {
             const dataResponse = await axios.get(`${BACKEND_URL}/data/projects/${projectId}`);
             const dataResult = dataResponse.data;
 
-            const sheetData = dataResult.products.products.map((product) => {
+            const sheetData = dataResult.products.map((product) => {
                 const additionalFields = product.additionalFields || {};
                 const row = [];
                 parsedHeaders.forEach((header) => {
@@ -47,8 +47,8 @@ const useSheetData = (projectId) => {
             setRowChecked(new Array(sheetData.length).fill(false));
 
             // 스타일 데이터 설정
-            if (dataResult.products.styles) {
-                setStyles(dataResult.products.styles);
+            if (dataResult.styles) {
+                setStyles(dataResult.styles);
             } else {
                 setStyles([]);
             }
