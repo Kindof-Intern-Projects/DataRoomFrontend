@@ -90,6 +90,10 @@ const SheetView = () => {
             case 'deleteColumns':
                 handleDeleteColumns(projectId, colHeaders, selectedColumn, setColHeaders, setData, setSelectedColumn);
                 break;
+            case 'changeCellColor':
+                console.log(data.productId);
+
+                break;
             default:
                 break;
         }
@@ -223,7 +227,71 @@ const SheetView = () => {
                     afterOnCellMouseDown={handleAfterOnCellMouseDown}
                     beforeOnCellMouseDown={handleBeforeOnCellMouseDown}
                     contextMenu={{
-                        callback: (key, options) => contextMenuCallback(key, options),
+                        callback: (key, options) => {
+                            if (key === 'changeCellColor') {
+                                const selectedCell = options[0]; // 첫 번째 선택된 셀 정보
+                                const selectedRow = selectedCell.start.row; // 선택된 행 번호
+                                const selectedCol = selectedCell.start.col; // 선택된 열 번호
+                        
+                                const productId = visibleData[selectedRow]?.[0]; // 첫 번째 열에 productId 저장
+                                const field = visibleHeaders[selectedCol]; // 열 헤더에서 field 이름 가져오기
+                        
+                                const mouseX = options.event?.clientX || window.innerWidth / 2; // 마우스 X 좌표
+                                const mouseY = options.event?.clientY || window.innerHeight / 2; // 마우스 Y 좌표
+                        
+                                // 컬러 선택기 생성
+                                const colorInput = document.createElement('input');
+                                colorInput.type = 'color';
+                                colorInput.style.position = 'absolute';
+                                colorInput.style.left = `${mouseX}px`;
+                                colorInput.style.top = `${mouseY}px`;
+                        
+                                // 컬러 선택기 추가 여부 플래그
+                                let isRemoved = false;
+                        
+                                // 컬러 선택 이벤트
+                                colorInput.addEventListener('input', (event) => {
+                                    const selectedColor = event.target.value; // 선택된 색상
+                                    console.log('Selected Color:', selectedColor);
+                                    console.log('Product ID:', productId);
+                                    console.log('Field:', field);
+                        
+                                    // 셀 색상 업데이트 로직 추가
+                                    if (productId && field) {
+                                        console.log(`Change color for Product ID: ${productId}, Field: ${field} to ${selectedColor}`);
+                                        // TODO: 셀 색상 업데이트 로직
+                                    }
+                        
+                                    // DOM에서 컬러 선택기 제거
+                                    if (!isRemoved) {
+                                        try {
+                                            document.body.removeChild(colorInput);
+                                        } catch (e) {
+                                            console.warn('Node already removed:', e.message);
+                                        }
+                                        isRemoved = true;
+                                    }
+                                });
+                        
+                                // 블러 이벤트로 창 제거
+                                colorInput.addEventListener('blur', () => {
+                                    if (!isRemoved) {
+                                        try {
+                                            document.body.removeChild(colorInput);
+                                        } catch (e) {
+                                            console.warn('Node already removed:', e.message);
+                                        }
+                                        isRemoved = true;
+                                    }
+                                });
+                        
+                                // 컬러 선택기 DOM 추가 및 포커스
+                                document.body.appendChild(colorInput);
+                                colorInput.focus();
+                            }
+                        },
+                        
+                        
                         items: {
                             uploadImage: { name: "Upload Image" },
                             addColumn: { name: "Add Column" },
@@ -231,6 +299,7 @@ const SheetView = () => {
                             downloadData: { name: "Download Data" },
                             deleteRows: { name: "Delete Rows" },
                             deleteColumns: { name: "Delete Columns" },
+                            changeCellColor:{name: "Cell Color"}
                         },
                     }}
                     
