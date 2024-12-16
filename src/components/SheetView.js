@@ -4,7 +4,7 @@ import 'handsontable/dist/handsontable.full.min.css';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import Modal from 'react-modal';
-import { handleAddColumn, handleDeleteColumns, handleAddRow, handleDeleteRows, handleCellChange, handleRowCheck, handleToggleColumn, handleDownload } from '../handlers/sheetHandlers';
+import { handleAddColumn, handleDeleteColumns, handleAddRow, handleDeleteRows, handleCellChange, handleRowCheck, handleToggleColumn, handleDownload, handleStyleCell } from '../handlers/sheetHandlers';
 import ImageRenderer from './ImageRenderer';
 import useSheetData from '../hooks/useSheetData';
 import HyperFormula from 'hyperformula';
@@ -16,7 +16,7 @@ Modal.setAppElement('#root');
 
 const SheetView = () => {
     const { projectId } = useParams();
-    const { data, colHeaders, columnVisibility, rowChecked, styles, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData } = useSheetData(projectId);
+    const { data, colHeaders, columnVisibility, rowChecked, styles, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData, setStyles } = useSheetData(projectId);
     const [newColumnTitle, setNewColumnTitle] = useState('');
     const [selectedColumn, setSelectedColumn] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,6 +89,10 @@ const SheetView = () => {
                 break;
             case 'deleteColumns':
                 handleDeleteColumns(projectId, colHeaders, selectedColumn, setColHeaders, setData, setSelectedColumn);
+                break;
+            case 'changeCellColor':
+                console.log(data.productId);
+
                 break;
             default:
                 break;
@@ -223,7 +227,84 @@ const SheetView = () => {
                     afterOnCellMouseDown={handleAfterOnCellMouseDown}
                     beforeOnCellMouseDown={handleBeforeOnCellMouseDown}
                     contextMenu={{
-                        callback: (key, options) => contextMenuCallback(key, options),
+                        callback: (key, options) => {
+                            // 셀 스타일 저장 요청 부분
+                            if (key === 'changeCellColor') {
+                                const selectedCell = options[0]; // 첫 번째 선택된 셀 정보
+                                const selectedRow = selectedCell.start.row; // 선택된 행 번호
+                                const selectedCol = selectedCell.start.col; // 선택된 열 번호
+                        
+                                const productId = visibleData[selectedRow]?.[0]; // 첫 번째 열에 productId 저장
+                                const field = visibleHeaders[selectedCol]; // 열 헤더에서 field 이름 가져오기
+                        
+                                const mouseX = options.event?.clientX || window.innerWidth / 2; // 마우스 X 좌표
+                                const mouseY = options.event?.clientY || window.innerHeight / 2; // 마우스 Y 좌표
+                        
+                                // 컬러 선택기 생성
+                                const colorInput = document.createElement('input');
+                                colorInput.type = 'color';
+                                colorInput.style.position = 'absolute';
+                                colorInput.style.left = `${mouseX}px`;
+                                colorInput.style.top = `${mouseY}px`;
+                        
+                                // 컬러 선택기 추가 여부 플래그
+                                let isRemoved = false;
+                        
+                                // 컬러 선택 이벤트
+                                colorInput.addEventListener('input', (event) => {
+                                    const selectedColor = event.target.value; // 선택된 색상
+                                    const newStyle = {color: selectedColor}
+                        
+                                    // 셀 색상 업데이트 로직 추가
+                                    if (productId && field) {
+                                        // TODO: 셀 색상 업데이트 로직
+                                        handleStyleCell(projectId, productId, field, newStyle)
+                                        .then((response) => {
+                                            // 서버 응답 객체를 styles에 추가
+                                            setStyles((prevStyles) => {
+                                                const updatedStyles = [...prevStyles, response];
+                                                return updatedStyles;
+                                            });
+
+                                            // Handsontable 리렌더링
+                                            hotTableRef.current.hotInstance.render();
+
+                                        })
+                                        .catch((error) => {
+                                            // Todo 예외 처리를 어떻게 할 것인가 다시요청을 해야하나?
+                                        });
+                                    }
+                        
+                                    // DOM에서 컬러 선택기 제거
+                                    if (!isRemoved) {
+                                        try {
+                                            document.body.removeChild(colorInput);
+                                        } catch (e) {
+                                            console.warn('Node already removed:', e.message);
+                                        }
+                                        isRemoved = true;
+                                    }
+                                });
+                        
+                                // 블러 이벤트로 창 제거
+                                colorInput.addEventListener('blur', () => {
+                                    if (!isRemoved) {
+                                        try {
+                                            document.body.removeChild(colorInput);
+                                        } catch (e) {
+                                            console.warn('Node already removed:', e.message);
+                                        }
+                                        isRemoved = true;
+                                    }
+                                });
+                        
+                                // 컬러 선택기 DOM 추가 및 포커스
+                                document.body.appendChild(colorInput);
+                                colorInput.focus();
+                            }
+                        },
+                        
+                        
                         items: {
                             uploadImage: { name: "Upload Image" },
                             addColumn: { name: "Add Column" },
@@ -231,6 +312,7 @@ const SheetView = () => {
                             downloadData: { name: "Download Data" },
                             deleteRows: { name: "Delete Rows" },
                             deleteColumns: { name: "Delete Columns" },
+                            changeCellColor:{name: "Cell Color"}
                         },
                     }}
                     

@@ -42,7 +42,7 @@ export const handleDeleteColumns = async (projectId, colHeaders, selectedColumn,
     try {
         const columnName = colHeaders[selectedColumn];
         const response = await axios.put(BACKEND_URL+`/sheet/projects/${projectId}/deletecolumns`, { columnName });
-
+        axios.delete(BACKEND_URL+`/sheet/cell/delete/field/${projectId}/${columnName}`);
         if (response.status === 200) {
             alert('선택한 컬럼이 삭제되었습니다.');
             setColHeaders((prevHeaders) => prevHeaders.filter((_, index) => index !== selectedColumn));
@@ -92,7 +92,7 @@ export const handleDeleteRows = async (projectId, data, rowChecked, fetchHeaders
         const response = await axios.delete(BACKEND_URL+`/sheet/projects/${projectId}/deleterows`, {
             data: { productIds: selectedProductIds }
         });
-
+        axios.delete(BACKEND_URL+`/sheet/cell/delete/row/${projectId}/${selectedProductIds}`);
         if (response.status === 200) {
             alert('선택된 데이터가 삭제되었습니다.');
             await fetchHeadersAndData();
@@ -233,3 +233,23 @@ export const handleToggleColumn = (index, setColumnVisibility) => {
         return newVisibility;
     });
 };
+// 스타일 저장 요청
+export const handleStyleCell = async(projectId, productId, field, newStyle) => {
+    const newStyleData = {
+        productId: productId,
+        field: field,
+        styles: newStyle
+    };
+
+    try {
+        const response = await axios.put(BACKEND_URL+`/sheet/cell/projects/${projectId}/updatestyle`, newStyleData);
+
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            console.error('Error adding row:', response.data.message);
+        }
+    } catch (error) {
+        console.error('Error adding row:', error);
+    }
+}
