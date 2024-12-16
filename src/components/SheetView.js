@@ -4,7 +4,7 @@ import 'handsontable/dist/handsontable.full.min.css';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import Modal from 'react-modal';
-import { handleAddColumn, handleDeleteColumns, handleAddRow, handleDeleteRows, handleCellChange, handleRowCheck, handleToggleColumn, handleDownload } from '../handlers/sheetHandlers';
+import { handleAddColumn, handleDeleteColumns, handleAddRow, handleDeleteRows, handleCellChange, handleRowCheck, handleToggleColumn, handleDownload, handleStyleCell } from '../handlers/sheetHandlers';
 import ImageRenderer from './ImageRenderer';
 import useSheetData from '../hooks/useSheetData';
 import HyperFormula from 'hyperformula';
@@ -16,7 +16,7 @@ Modal.setAppElement('#root');
 
 const SheetView = () => {
     const { projectId } = useParams();
-    const { data, colHeaders, columnVisibility, rowChecked, styles, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData } = useSheetData(projectId);
+    const { data, colHeaders, columnVisibility, rowChecked, styles, setData, setColHeaders, setColumnVisibility, setRowChecked, fetchHeadersAndData, setStyles } = useSheetData(projectId);
     const [newColumnTitle, setNewColumnTitle] = useState('');
     const [selectedColumn, setSelectedColumn] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -252,14 +252,26 @@ const SheetView = () => {
                                 // 컬러 선택 이벤트
                                 colorInput.addEventListener('input', (event) => {
                                     const selectedColor = event.target.value; // 선택된 색상
-                                    console.log('Selected Color:', selectedColor);
-                                    console.log('Product ID:', productId);
-                                    console.log('Field:', field);
+                                    const newStyle = {color: selectedColor}
                         
                                     // 셀 색상 업데이트 로직 추가
                                     if (productId && field) {
-                                        console.log(`Change color for Product ID: ${productId}, Field: ${field} to ${selectedColor}`);
                                         // TODO: 셀 색상 업데이트 로직
+                                        handleStyleCell(projectId, productId, field, newStyle)
+                                        .then((response) => {
+                                            // 서버 응답 객체를 styles에 추가
+                                            setStyles((prevStyles) => {
+                                                const updatedStyles = [...prevStyles, response];
+                                                return updatedStyles;
+                                            });
+
+                                            // Handsontable 리렌더링
+                                            hotTableRef.current.hotInstance.render();
+
+                                        })
+                                        .catch((error) => {
+                                            // Todo 예외 처리를 어떻게 할 것인가 다시요청을 해야하나?
+                                        });
                                     }
                         
                                     // DOM에서 컬러 선택기 제거

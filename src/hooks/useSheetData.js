@@ -57,7 +57,6 @@ const useSheetData = (projectId) => {
         }
     }, [projectId]);
 
-    // console.log(data);
 
     return {
         data,
@@ -69,7 +68,8 @@ const useSheetData = (projectId) => {
         setColHeaders,
         setColumnVisibility,
         setRowChecked,
-        fetchHeadersAndData
+        fetchHeadersAndData,
+        setStyles,
     };
 };
 

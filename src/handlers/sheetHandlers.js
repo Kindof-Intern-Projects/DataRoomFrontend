@@ -233,3 +233,23 @@ export const handleToggleColumn = (index, setColumnVisibility) => {
         return newVisibility;
     });
 };
+// 스타일 저장 요청
+export const handleStyleCell = async(projectId, productId, field, newStyle) => {
+    const newStyleData = {
+        productId: productId,
+        field: field,
+        styles: newStyle
+    };
+
+    try {
+        const response = await axios.put(BACKEND_URL+`/sheet/cell/projects/${projectId}/updatestyle`, newStyleData);
+
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            console.error('Error adding row:', response.data.message);
+        }
+    } catch (error) {
+        console.error('Error adding row:', error);
+    }
+}
