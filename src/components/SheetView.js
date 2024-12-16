@@ -228,6 +228,7 @@ const SheetView = () => {
                     beforeOnCellMouseDown={handleBeforeOnCellMouseDown}
                     contextMenu={{
                         callback: (key, options) => {
+                            // 셀 스타일 저장 요청 부분
                             if (key === 'changeCellColor') {
                                 const selectedCell = options[0]; // 첫 번째 선택된 셀 정보
                                 const selectedRow = selectedCell.start.row; // 선택된 행 번호
