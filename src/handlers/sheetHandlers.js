@@ -1,10 +1,12 @@
 // src/handlers/sheetHandlers.js
 import axios from 'axios';
-import { saveAs } from 'file-saver';
+import {saveAs} from 'file-saver';
 import ExcelJS from 'exceljs';
-import { HyperFormula } from 'hyperformula';
+import {HyperFormula} from 'hyperformula';
+import io from 'socket.io-client'; // Socket.IO 클라이언트 임포트 추가
 
 const BACKEND_URL = process.env.REACT_APP_BACK_URL;
+const socket = io(BACKEND_URL); // 소켓 연결 설정
 
 export const handleAddColumn = async (projectId, newColumnTitle, setNewColumnTitle, setColHeaders, setData, setColumnVisibility, fetchHeadersAndData) => {
     if (!newColumnTitle.trim()) {
@@ -13,7 +15,7 @@ export const handleAddColumn = async (projectId, newColumnTitle, setNewColumnTit
     }
 
     try {
-        const response = await axios.put(BACKEND_URL+`/sheet/projects/${projectId}/addcoloums`, { columnName: newColumnTitle });
+        const response = await axios.put(BACKEND_URL + `/sheet/projects/${projectId}/addcolums`, {columnName: newColumnTitle});
 
         if (response.status === 200) {
             alert('새로운 컬럼이 추가되었습니다.');
@@ -22,6 +24,8 @@ export const handleAddColumn = async (projectId, newColumnTitle, setNewColumnTit
             setData((prevData) => prevData.map((row) => [...row, '']));
             setColumnVisibility((prev) => [...prev, true]);
             await fetchHeadersAndData();
+            // 소켓을 통해 변경 사항 전파
+            socket.emit('columnAdded', {projectId, newColumnTitle});
         } else {
             console.error('Error adding column:', response.data.message);
         }
@@ -41,13 +45,16 @@ export const handleDeleteColumns = async (projectId, colHeaders, selectedColumn,
 
     try {
         const columnName = colHeaders[selectedColumn];
-        const response = await axios.put(BACKEND_URL+`/sheet/projects/${projectId}/deletecolumns`, { columnName });
-        axios.delete(BACKEND_URL+`/sheet/cell/delete/field/${projectId}/${columnName}`);
+        const response = await axios.put(BACKEND_URL + `/sheet/projects/${projectId}/deletecolumns`, {columnName});
+        axios.delete(BACKEND_URL + `/sheet/cell/delete/field/${projectId}/${columnName}`);
         if (response.status === 200) {
             alert('선택한 컬럼이 삭제되었습니다.');
             setColHeaders((prevHeaders) => prevHeaders.filter((_, index) => index !== selectedColumn));
             setData((prevData) => prevData.map((row) => row.filter((_, index) => index !== selectedColumn)));
             setSelectedColumn(null);
+
+            // 소켓을 통해 변경 사항 전파
+            socket.emit('columnDeleted', {projectId, columnName});
         } else {
             console.error('Error deleting column:', response.data.message);
         }
@@ -65,11 +72,14 @@ export const handleAddRow = async (projectId, setData, fetchHeadersAndData) => {
     };
 
     try {
-        const response = await axios.put(BACKEND_URL+`/sheet/projects/${projectId}/addrows`, newProductData);
+        const response = await axios.put(BACKEND_URL + `/sheet/projects/${projectId}/addrows`, newProductData);
 
         if (response.status === 200) {
             alert('새로운 row가 추가되었습니다.');
             await fetchHeadersAndData();
+
+            // 소켓을 통해 변경 사항 전파
+            socket.emit('rowAdded', {projectId});
         } else {
             console.error('Error adding row:', response.data.message);
         }
@@ -89,13 +99,16 @@ export const handleDeleteRows = async (projectId, data, rowChecked, fetchHeaders
     }
 
     try {
-        const response = await axios.delete(BACKEND_URL+`/sheet/projects/${projectId}/deleterows`, {
+        const response = await axios.delete(BACKEND_URL + `/sheet/projects/${projectId}/deleterows`, {
             data: { productIds: selectedProductIds }
         });
-        axios.delete(BACKEND_URL+`/sheet/cell/delete/row/${projectId}/${selectedProductIds}`);
+        axios.delete(BACKEND_URL + `/sheet/cell/delete/row/${projectId}/${selectedProductIds}`);
         if (response.status === 200) {
             alert('선택된 데이터가 삭제되었습니다.');
             await fetchHeadersAndData();
+
+            // 소켓을 통해 변경 사항 전파
+            socket.emit('rowsDeleted', {projectId, selectedProductIds});
         } else {
             console.error('데이터 삭제 실패:', response.data.message);
         }
@@ -171,12 +184,16 @@ export const handleDownload = async (data, colHeaders, columnVisibility, rowChec
     });
 };
 
+let isRequestInProgress = false; // 요청 진행 중 여부
+
 export const handleCellChange = async (changes, data, colHeaders, projectId) => {
-    if (!changes) return;
+    if (!changes || changes.length === 0 || isRequestInProgress) return; // 변경 사항이 없거나 요청 중이면 종료
+
+    isRequestInProgress = true; // 요청 시작
 
     const hyperformulaInstance = HyperFormula.buildEmpty({ licenseKey: 'non-commercial-and-evaluation' });
     hyperformulaInstance.addSheet('Sheet1');
-    
+
     // 변경된 셀 내용 저장
     const modifiedData = changes.map(([row, colIndex, oldValue, newValue]) => {
         const fieldName = colHeaders[colIndex];
@@ -200,21 +217,29 @@ export const handleCellChange = async (changes, data, colHeaders, projectId) => 
         };
     });
 
+    console.log('수정된 데이터:', modifiedData); // 전송할 데이터 로그 추가
+
+    // 서버에 변경 사항 전송
     try {
-        const response = await fetch(BACKEND_URL+`/sheet/projects/${projectId}/updatedata`, {
+        const response = await fetch(`${BACKEND_URL}/sheet/projects/${projectId}/updatedata`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ projectId, changes: modifiedData })
         });
 
+        const responseBody = await response.text(); // 응답 본문을 한 번만 읽음
+
         if (response.ok) {
+            // 소켓을 통해 셀 변경 사항 전파
+            socket.emit('cellUpdate', {projectId, changes: modifiedData});
             console.log('Data successfully updated!');
         } else {
-            const error = await response.json();
-            console.error('Error updating data:', error.message);
+            console.error('Error updating data:', responseBody); // 응답 본문을 로그에 기록
         }
     } catch (error) {
         console.error('Error saving changes:', error);
+    } finally {
+        isRequestInProgress = false; // 요청 완료
     }
 };
 
@@ -234,7 +259,7 @@ export const handleToggleColumn = (index, setColumnVisibility) => {
     });
 };
 // 스타일 저장 요청
-export const handleStyleCell = async(projectId, productId, field, newStyle) => {
+export const handleStyleCell = async (projectId, productId, field, newStyle) => {
     const newStyleData = {
         productId: productId,
         field: field,
@@ -242,7 +267,7 @@ export const handleStyleCell = async(projectId, productId, field, newStyle) => {
     };
 
     try {
-        const response = await axios.put(BACKEND_URL+`/sheet/cell/projects/${projectId}/updatestyle`, newStyleData);
+        const response = await axios.put(BACKEND_URL + `/sheet/cell/projects/${projectId}/updatestyle`, newStyleData);
 
         if (response.status === 200) {
             return response.data;

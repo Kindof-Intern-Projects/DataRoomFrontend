@@ -1,16 +1,28 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { HotTable } from '@handsontable/react';
+import React, {useEffect, useRef, useState} from 'react';
+import {HotTable} from '@handsontable/react';
 import 'handsontable/dist/handsontable.full.min.css';
-import { useParams } from 'react-router-dom';
+import {useParams} from 'react-router-dom';
 import axios from 'axios';
 import Modal from 'react-modal';
-import { handleAddColumn, handleDeleteColumns, handleAddRow, handleDeleteRows, handleCellChange, handleRowCheck, handleToggleColumn, handleDownload, handleStyleCell } from '../handlers/sheetHandlers';
+import {
+    handleAddColumn,
+    handleAddRow,
+    handleCellChange,
+    handleDeleteColumns,
+    handleDeleteRows,
+    handleDownload,
+    handleRowCheck,
+    handleStyleCell,
+    handleToggleColumn
+} from '../handlers/sheetHandlers';
 import ImageRenderer from './ImageRenderer';
 import useSheetData from '../hooks/useSheetData';
 import HyperFormula from 'hyperformula';
 import Handsontable from 'handsontable';
+import io from 'socket.io-client'; // Socket.IO 클라이언트 임포트 추가
 
 const BACKEND_URL = process.env.REACT_APP_BACK_URL;
+const socket = io(BACKEND_URL); // 서버와의 Socket.IO 연결
 
 Modal.setAppElement('#root');
 
@@ -37,8 +49,83 @@ const SheetView = () => {
         loadData();
     }, [fetchHeadersAndData]); // fetchHeadersAndData가 변경될 때마다 호출
 
-    const handleColumnSelection = (colIndex) => {
-        setSelectedColumn(colIndex);
+    // 소켓 이벤트 수신 설정
+    useEffect(() => {
+        socket.on('columnAdded', (data) => {
+            console.log('컬럼 추가됨:', data.newColumnTitle);
+            setColHeaders(prevHeaders => [...prevHeaders, data.newColumnTitle]);
+            setData(prevData => prevData.map(row => [...row, ''])); // 모든 행에 빈 값 추가
+            setColumnVisibility(prev => [...prev, true]);
+        });
+
+        socket.on('columnDeleted', (data) => {
+            console.log('컬럼 삭제됨:', data.columnName);
+            setColHeaders(prevHeaders => prevHeaders.filter(header => header !== data.columnName));
+            setData(prevData => prevData.map(row => row.filter((_, index) => index !== selectedColumn)));
+        });
+
+        socket.on('rowAdded', () => {
+            console.log('행 추가됨');
+            fetchHeadersAndData(); // 데이터를 다시 로드하여 업데이트
+        });
+
+        socket.on('rowsDeleted', (data) => {
+            console.log('행 삭제됨:', data.selectedProductIds);
+            fetchHeadersAndData(); // 데이터를 다시 로드
+        });
+
+        socket.on('cellUpdate', (dataFromServer) => {
+            console.log('셀 업데이트됨:', dataFromServer);
+            const {changes} = dataFromServer; // changes 배열을 가져옵니다.
+
+            // 현재 상태의 data를 사용
+            const currentData = data; // useSheetData 훅에서 가져온 현재 데이터
+
+            // currentData가 배열인지 확인
+            if (!Array.isArray(currentData)) {
+                console.error('currentData는 배열이 아닙니다:', currentData);
+                return; // currentData가 배열이 아닐 경우 더 이상 진행하지 않음
+            }
+
+            changes.forEach(change => {
+                const {field, newValue, productId} = change; // field, newValue, productId를 추출합니다.
+
+                // productId를 사용하여 row 인덱스를 찾습니다.
+                const row = currentData.findIndex(rowData => rowData[0] === productId); // 첫 번째 열이 productId
+                const col = colHeaders.indexOf(field); // field에 해당하는 열 인덱스 찾기
+
+                // 유효한 row와 col인지 확인
+                if (row >= 0 && col >= 0) {
+                    const hot = hotTableRef.current.hotInstance;
+
+                    // Handsontable 데이터 업데이트
+                    hot.setDataAtCell(row, col, newValue, true);
+
+                    // React 상태 업데이트
+                    setData(prevData => {
+                        const updatedData = [...prevData];
+                        if (!updatedData[row]) updatedData[row] = []; // 빈 배열로 초기화
+                        updatedData[row][col] = newValue; // 해당 필드의 값을 업데이트
+                        return updatedData;
+                    });
+                } else {
+                    console.warn(`Invalid row ${row} or column ${col} for field ${field}`);
+                }
+            });
+        });
+
+        return () => {
+            socket.off('columnAdded');
+            socket.off('columnDeleted');
+            socket.off('rowAdded');
+            socket.off('rowsDeleted');
+            socket.off('cellUpdate');
+        };
+    }, []);
+
+    const handleModalSubmit = () => {
+        handleAddColumn(projectId, newColumnTitle, setNewColumnTitle, setColHeaders, setData, setColumnVisibility, fetchHeadersAndData);
+        setIsModalOpen(false);
     };
 
     const handleFileUpload = async (file, row, col) => {
@@ -92,16 +179,14 @@ const SheetView = () => {
                 break;
             case 'changeCellColor':
                 console.log(data.productId);
-
                 break;
             default:
                 break;
         }
     };
 
-    const handleModalSubmit = () => {
-        handleAddColumn(projectId, newColumnTitle, setNewColumnTitle, setColHeaders, setData, setColumnVisibility, fetchHeadersAndData);
-        setIsModalOpen(false);
+    const handleColumnSelection = (colIndex) => {
+        setSelectedColumn(colIndex);
     };
 
     const visibleHeaders = colHeaders.filter((_, index) => columnVisibility[index]);
@@ -113,20 +198,14 @@ const SheetView = () => {
 
     const handleBeforeOnCellMouseDown = (event, coords, TD, controller) => {
         const activeEditor = hotTableRef.current.hotInstance.getActiveEditor();
-        
-        if (!activeEditor) {
-            return;
-        }
-        if (!activeEditor.isOpened()) {
-            return;
-        }
-        if (event.target === activeEditor.TEXTAREA) {
-            return;
-        }
-        
+
+        if (!activeEditor) return;
+        if (!activeEditor.isOpened()) return;
+        if (event.target === activeEditor.TEXTAREA) return;
+
         const { TEXTAREA } = activeEditor;
         const { value } = TEXTAREA;
-        
+
         if (value.startsWith('=')) {
             controller.cells = true;
             const spreadsheetAddress = `${Handsontable.helper.spreadsheetColumnLabel(coords.col)}${coords.row + 1}`;
@@ -138,17 +217,10 @@ const SheetView = () => {
 
     const handleAfterOnCellMouseUp = (event) => {
         const activeEditor = hotTableRef.current.hotInstance.getActiveEditor();
-        
-        if (!activeEditor) {
-            return;
-        }
-        if (!activeEditor.isOpened()) {
-            return;
-        }
-        if (event.target === activeEditor.TEXTAREA) {
-            return;
-        }
-        
+        if (!activeEditor) return;
+        if (!activeEditor.isOpened()) return;
+        if (event.target === activeEditor.TEXTAREA) return;
+
         activeEditor.focus();
     };
 
@@ -162,15 +234,23 @@ const SheetView = () => {
 
     const handleAfterChange = (changes) => {
         if (!changes) return;
-    
+
         const hot = hotTableRef.current.hotInstance;
         changes.forEach(([row, col, oldValue, newValue]) => {
-            if (typeof newValue === 'string' && newValue.startsWith('=')) {
-                const cellValue = hot.getDataAtCell(row, col);
-                hot.setDataAtCell(row, col, cellValue);
+            // 유효한 row와 col인지 확인
+            if (row !== undefined && col >= 0) {
+                // React 상태 업데이트
+                setData(prevData => {
+                    const updatedData = [...prevData];
+                    if (!updatedData[row]) updatedData[row] = []; // 빈 배열로 초기화
+                    updatedData[row][col] = newValue; // 해당 셀의 값을 업데이트
+                    return updatedData;
+                });
+            } else {
+                console.warn(`Invalid row ${row} or column ${col}`);
             }
         });
-    
+
         handleCellChange(changes, data, colHeaders, projectId);
     };
 
@@ -233,48 +313,48 @@ const SheetView = () => {
                                 const selectedCell = options[0]; // 첫 번째 선택된 셀 정보
                                 const selectedRow = selectedCell.start.row; // 선택된 행 번호
                                 const selectedCol = selectedCell.start.col; // 선택된 열 번호
-                        
+
                                 const productId = visibleData[selectedRow]?.[0]; // 첫 번째 열에 productId 저장
                                 const field = visibleHeaders[selectedCol]; // 열 헤더에서 field 이름 가져오기
-                        
+
                                 const mouseX = options.event?.clientX || window.innerWidth / 2; // 마우스 X 좌표
                                 const mouseY = options.event?.clientY || window.innerHeight / 2; // 마우스 Y 좌표
-                        
+
                                 // 컬러 선택기 생성
                                 const colorInput = document.createElement('input');
                                 colorInput.type = 'color';
                                 colorInput.style.position = 'absolute';
                                 colorInput.style.left = `${mouseX}px`;
                                 colorInput.style.top = `${mouseY}px`;
-                        
+
                                 // 컬러 선택기 추가 여부 플래그
                                 let isRemoved = false;
-                        
+
                                 // 컬러 선택 이벤트
                                 colorInput.addEventListener('input', (event) => {
                                     const selectedColor = event.target.value; // 선택된 색상
                                     const newStyle = {color: selectedColor}
-                        
+
                                     // 셀 색상 업데이트 로직 추가
                                     if (productId && field) {
                                         // TODO: 셀 색상 업데이트 로직
                                         handleStyleCell(projectId, productId, field, newStyle)
-                                        .then((response) => {
-                                            // 서버 응답 객체를 styles에 추가
-                                            setStyles((prevStyles) => {
-                                                const updatedStyles = [...prevStyles, response];
-                                                return updatedStyles;
+                                            .then((response) => {
+                                                // 서버 응답 객체를 styles에 추가
+                                                setStyles((prevStyles) => {
+                                                    const updatedStyles = [...prevStyles, response];
+                                                    return updatedStyles;
+                                                });
+
+                                                // Handsontable 리렌더링
+                                                hotTableRef.current.hotInstance.render();
+
+                                            })
+                                            .catch((error) => {
+                                                // Todo 예외 처리를 어떻게 할 것인가 다시요청을 해야하나?
                                             });
-
-                                            // Handsontable 리렌더링
-                                            hotTableRef.current.hotInstance.render();
-
-                                        })
-                                        .catch((error) => {
-                                            // Todo 예외 처리를 어떻게 할 것인가 다시요청을 해야하나?
-                                        });
                                     }
-                        
+
                                     // DOM에서 컬러 선택기 제거
                                     if (!isRemoved) {
                                         try {
@@ -285,7 +365,7 @@ const SheetView = () => {
                                         isRemoved = true;
                                     }
                                 });
-                        
+
                                 // 블러 이벤트로 창 제거
                                 colorInput.addEventListener('blur', () => {
                                     if (!isRemoved) {
@@ -297,14 +377,14 @@ const SheetView = () => {
                                         isRemoved = true;
                                     }
                                 });
-                        
+
                                 // 컬러 선택기 DOM 추가 및 포커스
                                 document.body.appendChild(colorInput);
                                 colorInput.focus();
                             }
                         },
-                        
-                        
+
+
                         items: {
                             uploadImage: { name: "Upload Image" },
                             addColumn: { name: "Add Column" },
@@ -312,14 +392,14 @@ const SheetView = () => {
                             downloadData: { name: "Download Data" },
                             deleteRows: { name: "Delete Rows" },
                             deleteColumns: { name: "Delete Columns" },
-                            changeCellColor:{name: "Cell Color"}
+                            changeCellColor: {name: "Cell Color"}
                         },
                     }}
-                    
+
                     formulas={{
                         engine: hyperformulaInstance,
                     }}
-                
+
                     // 셀 스타일 적용
                     cells={(row, col, prop) => {
                         const cellProperties = {};
@@ -331,11 +411,11 @@ const SheetView = () => {
                         if (!data || !data[row] || data[row].length === 0) {
                             return cellProperties; // 데이터가 없으면 스타일을 적용하지 않음
                         }
-                         
+
                         // 특정 row와 column의 productId 및 field에 따라 스타일 찾기
-                        const productId = data[row][0]; 
-                        const field = colHeaders[col]; 
-                        
+                        const productId = data[row][0];
+                        const field = colHeaders[col];
+
                         // 스타일을 찾을 때, undefined 또는 null을 방어
                         const matchedStyle = styles.find(
                             (style) => style.productId === productId && style.field === field
@@ -391,7 +471,7 @@ const SheetView = () => {
                     <button onClick={handleModalSubmit} style={{ padding: '10px 20px' }}>추가</button>
                     <button onClick={() => setIsModalOpen(false)} style={{ padding: '10px 20px' }}>취소</button>
                 </div>
-            </Modal> 
+            </Modal>
         </div>
     );
 };
