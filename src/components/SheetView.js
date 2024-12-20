@@ -74,52 +74,11 @@ const SheetView = () => {
             fetchHeadersAndData(); // 데이터를 다시 로드
         });
 
-        socket.on('cellUpdate', (dataFromServer) => {
-            console.log('셀 업데이트됨:', dataFromServer);
-            const {changes} = dataFromServer; // changes 배열을 가져옵니다.
-
-            // 현재 상태의 data를 사용
-            const currentData = data; // useSheetData 훅에서 가져온 현재 데이터
-
-            // currentData가 배열인지 확인
-            if (!Array.isArray(currentData)) {
-                console.error('currentData는 배열이 아닙니다:', currentData);
-                return; // currentData가 배열이 아닐 경우 더 이상 진행하지 않음
-            }
-
-            changes.forEach(change => {
-                const {field, newValue, productId} = change; // field, newValue, productId를 추출합니다.
-
-                // productId를 사용하여 row 인덱스를 찾습니다.
-                const row = currentData.findIndex(rowData => rowData[0] === productId); // 첫 번째 열이 productId
-                const col = colHeaders.indexOf(field); // field에 해당하는 열 인덱스 찾기
-
-                // 유효한 row와 col인지 확인
-                if (row >= 0 && col >= 0) {
-                    const hot = hotTableRef.current.hotInstance;
-
-                    // Handsontable 데이터 업데이트
-                    hot.setDataAtCell(row, col, newValue, true);
-
-                    // React 상태 업데이트
-                    setData(prevData => {
-                        const updatedData = [...prevData];
-                        if (!updatedData[row]) updatedData[row] = []; // 빈 배열로 초기화
-                        updatedData[row][col] = newValue; // 해당 필드의 값을 업데이트
-                        return updatedData;
-                    });
-                } else {
-                    console.warn(`Invalid row ${row} or column ${col} for field ${field}`);
-                }
-            });
-        });
-
         return () => {
             socket.off('columnAdded');
             socket.off('columnDeleted');
             socket.off('rowAdded');
             socket.off('rowsDeleted');
-            socket.off('cellUpdate');
         };
     }, []);
 
@@ -237,17 +196,9 @@ const SheetView = () => {
 
         const hot = hotTableRef.current.hotInstance;
         changes.forEach(([row, col, oldValue, newValue]) => {
-            // 유효한 row와 col인지 확인
-            if (row !== undefined && col >= 0) {
-                // React 상태 업데이트
-                setData(prevData => {
-                    const updatedData = [...prevData];
-                    if (!updatedData[row]) updatedData[row] = []; // 빈 배열로 초기화
-                    updatedData[row][col] = newValue; // 해당 셀의 값을 업데이트
-                    return updatedData;
-                });
-            } else {
-                console.warn(`Invalid row ${row} or column ${col}`);
+            if (typeof newValue === 'string' && newValue.startsWith('=')) {
+                const cellValue = hot.getDataAtCell(row, col);
+                hot.setDataAtCell(row, col, cellValue);
             }
         });
 

@@ -184,12 +184,8 @@ export const handleDownload = async (data, colHeaders, columnVisibility, rowChec
     });
 };
 
-let isRequestInProgress = false; // 요청 진행 중 여부
-
 export const handleCellChange = async (changes, data, colHeaders, projectId) => {
-    if (!changes || changes.length === 0 || isRequestInProgress) return; // 변경 사항이 없거나 요청 중이면 종료
-
-    isRequestInProgress = true; // 요청 시작
+    if (!changes) return;
 
     const hyperformulaInstance = HyperFormula.buildEmpty({ licenseKey: 'non-commercial-and-evaluation' });
     hyperformulaInstance.addSheet('Sheet1');
@@ -217,29 +213,21 @@ export const handleCellChange = async (changes, data, colHeaders, projectId) => 
         };
     });
 
-    console.log('수정된 데이터:', modifiedData); // 전송할 데이터 로그 추가
-
-    // 서버에 변경 사항 전송
     try {
-        const response = await fetch(`${BACKEND_URL}/sheet/projects/${projectId}/updatedata`, {
+        const response = await fetch(BACKEND_URL + `/sheet/projects/${projectId}/updatedata`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ projectId, changes: modifiedData })
         });
 
-        const responseBody = await response.text(); // 응답 본문을 한 번만 읽음
-
         if (response.ok) {
-            // 소켓을 통해 셀 변경 사항 전파
-            socket.emit('cellUpdate', {projectId, changes: modifiedData});
             console.log('Data successfully updated!');
         } else {
-            console.error('Error updating data:', responseBody); // 응답 본문을 로그에 기록
+            const error = await response.json();
+            console.error('Error updating data:', error.message);
         }
     } catch (error) {
         console.error('Error saving changes:', error);
-    } finally {
-        isRequestInProgress = false; // 요청 완료
     }
 };
 
